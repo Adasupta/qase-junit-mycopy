@@ -1,0 +1,28 @@
+tasks.register('runCucumberTests', Test) { Test it ->
+    useJUnitPlatform()
+    doFirst {
+        def cucumberTag: String = System.getProperty("cucumber.filter.tags") ?: System.getenv("CUCUMBER_TAG")
+        if (cucumberTag) {
+            systemProperty "cucumber.filter.tags", cucumberTag
+            println ">> Running tests with tag: $cucumberTag"
+        } else {
+            println "›> No tag specified - running all tests"
+        }
+        if (System.getenv("CI") != null) {  // Ensure CI environment variable is checked properly
+            println ">> CI environment detected: enabling Qase reporting"
+            systemProperty "qase.api.token", System.getenv("QASE_TESTOPS_API_TOKEN")  // Fixed typo
+            systemProperty "qase.project", "DEMO"  // Assuming 'COURTRESER' is your project code
+            systemProperty "qase.run.complete", "true"
+        } else {
+            println ">> Not running on CI: Qase reporting disabled"
+        }
+    }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    description = 'Runs Cucumber tests with optional Qase reporting'
+    group = 'verification'
+    testLogging {
+        events "started", "passed", "failed", "skipped"
+        showStandardStreams = true
+    }
+}

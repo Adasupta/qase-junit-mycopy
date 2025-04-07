@@ -1,70 +1,74 @@
 name: Runner
 
 on:
-workflow_dispatch:
-inputs:
-cucumberTag:
-description: 'Cucumber tag to run (e.g. @smoke)'
-required: false
-default: ''
-qase_api_base_url:
-required: true
-qase_report:
-description: 'Enabled/disabled reporting to Qase'
-required: true
-qase_project_code:
-description: 'Qase project code'
-required: true
-qase_run_id:
-description: 'Qase Run ID'
-required: true
-qase_run_complete:
-description: 'Qase Run autocomplete'
-required: true
+  push:
+    branches:
+      - main  # or specify any branch you want to use for triggering
+  workflow_dispatch:
+    inputs:
+      cucumberTag:
+        description: 'Cucumber tag to run (e.g. @smoke)'
+        required: false
+        default: ''
+      qase_api_base_url:
+        description: 'Qase API URL'
+        required: true
+      qase_report:
+        description: 'Enabled/disabled reporting to Qase'
+        required: true
+      qase_project_code:
+        description: 'Qase project code'
+        required: true
+      qase_run_id:
+        description: 'Qase Run ID'
+        required: true
+      qase_run_complete:
+        description: 'Qase Run autocomplete'
+        required: true
 
 jobs:
-test:
-runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest
 
-env:
-QASE_API_BASE_URL: ${{ github.event.inputs.qase_api_base_url }}
-QASE_TESTOPS_PROJECT: ${{ github.event.inputs.qase_project_code }}
-QASE_TESTOPS_RUN_ID: ${{ github.event.inputs.qase_run_id }}
-QASE_TESTOPS_RUN_COMPLETE: ${{ github.event.inputs.qase_run_complete }}
-QASE_TESTOPS_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+    env:
+      QASE_API_BASE_URL: ${{ github.event.inputs.qase_api_base_url }}
+      QASE_TESTOPS_PROJECT: ${{ github.event.inputs.qase_project_code }}
+      QASE_TESTOPS_RUN_ID: ${{ github.event.inputs.qase_run_id }}
+      QASE_TESTOPS_RUN_COMPLETE: ${{ github.event.inputs.qase_run_complete }}
+      QASE_TESTOPS_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
 
-steps:
-- uses: cskmnrpt/qase-link-run@v2
-env:
-QASE_TESTOPS_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+    steps:
+      - uses: cskmnrpt/qase-link-run@v2
+        env:
+          QASE_TESTOPS_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
 
-- name: Checkout code
-uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-- name: Cache Playwright Browsers
-uses: actions/cache@v3
-with:
-path: ~/.cache/ms-playwright
-key: ${{ runner.os }}-ms-playwright-${{ hashFiles('build.gradle') }}
-restore-keys: |
-${{ runner.os }}-ms-playwright-
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-ms-playwright-${{ hashFiles('build.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-ms-playwright-
 
-- name: Install Playwright browsers
-run: ./gradlew playwrightInstall
+      - name: Install Playwright browsers
+        run: ./gradlew playwrightInstall
 
-- name: Set up JDK 22
-uses: actions/setup-java@v4
-with:
-distribution: 'temurin'
-java-version: 22
+      - name: Set up JDK 22
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 22
 
-- name: Grant execute permission for Gradle wrapper
-run: chmod +x gradlew
+      - name: Grant execute permission for Gradle wrapper
+        run: chmod +x gradlew
 
-- name: Run tests with Gradle
-run: |
-if [ -z "${{ github.event.inputs.cucumberTag }}" ]; then
-./gradlew runCucumberTests
-else
-./gradlew runCucumberTests -Dcucumber.filter.tags="${{ github.event.inputs.cucumberTag }}"
-fi
+      - name: Run tests with Gradle
+        run: |
+          if [ -z "${{ github.event.inputs.cucumberTag }}" ]; then
+            ./gradlew runCucumberTests
+          else
+            ./gradlew runCucumberTests -Dcucumber.filter.tags="${{ github.event.inputs.cucumberTag }}"
+          fi

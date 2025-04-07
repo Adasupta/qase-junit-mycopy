@@ -1,74 +1,45 @@
-name: Runner
+name: Example tests
 
 on:
   push:
     branches:
-      - main  # or specify any branch you want to use for triggering
+      - junit5
+
+  pull_request:
+    branches:
+      - junit5
+
   workflow_dispatch:
-    inputs:
-      cucumberTag:
-        description: 'Cucumber tag to run (e.g. @smoke)'
-        required: false
-        default: ''
-      qase_api_base_url:
-        description: 'Qase API URL'
-        required: true
-      qase_report:
-        description: 'Enabled/disabled reporting to Qase'
-        required: true
-      qase_project_code:
-        description: 'Qase project code'
-        required: true
-      qase_run_id:
-        description: 'Qase Run ID'
-        required: true
-      qase_run_complete:
-        description: 'Qase Run autocomplete'
-        required: true
+
+env:
+  QASE_TESTOPS_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+  QASE_TESTOPS_PROJECT: ${{ vars.QASE_TESTOPS_PROJECT }}
+  QASE_TESTOPS_RUN_COMPLETE: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
-    env:
-      QASE_API_BASE_URL: ${{ github.event.inputs.qase_api_base_url }}
-      QASE_TESTOPS_PROJECT: ${{ github.event.inputs.qase_project_code }}
-      QASE_TESTOPS_RUN_ID: ${{ github.event.inputs.qase_run_id }}
-      QASE_TESTOPS_RUN_COMPLETE: ${{ github.event.inputs.qase_run_complete }}
-      QASE_TESTOPS_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
-
     steps:
-      - uses: cskmnrpt/qase-link-run@v2
-        env:
-          QASE_TESTOPS_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Get run title
+        id: set_title
+        run: |
+          BRANCH_NAME=${GITHUB_REF##*/}
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:%s)
+          echo "QASE_TESTOPS_RUN_TITLE=qase-junit5@$BRANCH_NAME: $COMMIT_MESSAGE" >> $GITHUB_ENV
 
-      - name: Cache Playwright Browsers
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-ms-playwright-${{ hashFiles('build.gradle') }}
-          restore-keys: |
-            ${{ runner.os }}-ms-playwright-
-
-      - name: Install Playwright browsers
-        run: ./gradlew playwrightInstall
-
-      - name: Set up JDK 22
-        uses: actions/setup-java@v4
+      - name: Set up JDK 11
+        uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
-          java-version: 22
+          java-version: '11'
 
-      - name: Grant execute permission for Gradle wrapper
-        run: chmod +x gradlew
+      - name: Install Dependencies
+        run: ./gradlew build -x test  # Build the project, skip running tests for this step
 
-      - name: Run tests with Gradle
+      - name: Run Junit5 tests
         run: |
-          if [ -z "${{ github.event.inputs.cucumberTag }}" ]; then
-            ./gradlew runCucumberTests
-          else
-            ./gradlew runCucumberTests -Dcucumber.filter.tags="${{ github.event.inputs.cucumberTag }}"
-          fi
+          QASE_MODE=testops ./gradlew test  # Run the tests using Gradle
